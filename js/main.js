@@ -474,18 +474,14 @@ class TontonSumo {
                 wrestler.isOut = true;
             }
 
-            // 倒れたかチェック（Y軸の回転で判定）
+            // 倒れたかチェック（板の側面が土俵と並行になったら倒れた）
             const rotation = wrestler.body.quaternion;
             const euler = new CANNON.Vec3();
             rotation.toEuler(euler);
 
-            // Y軸の回転が大きい場合は倒れたと判定
-            if (Math.abs(euler.y) > Math.PI / 3 && !wrestler.isDown) {
-                wrestler.isDown = true;
-            }
-
-            // X軸やZ軸の回転も確認（前後左右に倒れる）
-            if ((Math.abs(euler.x) > Math.PI / 4 || Math.abs(euler.z) > Math.PI / 4) && !wrestler.isDown) {
+            // X軸やZ軸の回転が90度に達したら倒れたと判定
+            // 板の側面の辺が土俵と並行になる = 完全に横倒し
+            if ((Math.abs(euler.x) >= Math.PI / 2 || Math.abs(euler.z) >= Math.PI / 2) && !wrestler.isDown) {
                 wrestler.isDown = true;
             }
 
