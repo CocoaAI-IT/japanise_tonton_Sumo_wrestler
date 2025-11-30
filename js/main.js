@@ -41,14 +41,14 @@ class TontonSumo {
         this.scene.background = new THREE.Color(0x87ceeb);
         this.scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
 
-        // カメラ（横から見る視点）
+        // カメラ（斜め上から見下ろす視点）
         this.camera = new THREE.PerspectiveCamera(
             60,
             window.innerWidth / window.innerHeight,
             0.1,
             1000
         );
-        this.camera.position.set(15, 0, 0);  // 横から見る（X軸方向から）
+        this.camera.position.set(10, 10, 10);  // 斜め上から見下ろす
         this.camera.lookAt(0, 0, 0);
 
         // レンダラー
@@ -108,15 +108,15 @@ class TontonSumo {
     }
 
     createDohyo() {
-        // 土俵のプラットフォーム（水平な平面）
-        const dohyoWidth = 10;  // X軸方向
-        const dohyoDepth = 8;   // Z軸方向
-        const dohyoHeight = 0.3; // Y軸方向（厚み）
+        // 土俵のプラットフォーム（箱型）
+        const dohyoWidth = 10;   // X軸方向
+        const dohyoDepth = 8;    // Z軸方向
+        const dohyoHeight = 1.5; // Y軸方向（箱の高さ）
 
         // Three.js視覚的メッシュをグループにまとめる
         const dohyoGroup = new THREE.Group();
 
-        // 土俵本体（水平な平面）
+        // 土俵本体（箱型）
         const geometry = new THREE.BoxGeometry(dohyoWidth, dohyoHeight, dohyoDepth);
         const material = new THREE.MeshStandardMaterial({
             color: 0xd2b48c,
@@ -127,41 +127,58 @@ class TontonSumo {
         dohyoMesh.receiveShadow = true;
         dohyoGroup.add(dohyoMesh);
 
-        // 土俵の枠（俵）
-        const frameThickness = 0.2;
-        const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+        // 円形の土俵ライン（俵）- 土俵上面に配置
+        const ringRadius = 3;  // 円形土俵の半径
+        const ringTube = 0.1;  // 俵の太さ
+        const torusGeometry = new THREE.TorusGeometry(ringRadius, ringTube, 16, 100);
+        const torusMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.7
+        });
+        const torusMesh = new THREE.Mesh(torusGeometry, torusMaterial);
+        torusMesh.rotation.x = Math.PI / 2;  // 水平に配置
+        torusMesh.position.y = dohyoHeight / 2 + 0.01;  // 土俵上面のすぐ上
+        dohyoGroup.add(torusMesh);
 
-        // 手前の枠（Z軸プラス側）
-        const frontFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(dohyoWidth, frameThickness, frameThickness),
-            frameMaterial
-        );
-        frontFrame.position.set(0, dohyoHeight / 2 + frameThickness / 2, dohyoDepth / 2);
-        dohyoGroup.add(frontFrame);
+        // 四隅の丸マーカー（青と赤）
+        const markerRadius = 0.3;
+        const markerGeometry = new THREE.CircleGeometry(markerRadius, 32);
 
-        // 奥の枠（Z軸マイナス側）
-        const backFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(dohyoWidth, frameThickness, frameThickness),
-            frameMaterial
+        // 左奥 - 青
+        const blueMarker1 = new THREE.Mesh(
+            markerGeometry,
+            new THREE.MeshStandardMaterial({ color: 0x0000ff, side: THREE.DoubleSide })
         );
-        backFrame.position.set(0, dohyoHeight / 2 + frameThickness / 2, -dohyoDepth / 2);
-        dohyoGroup.add(backFrame);
+        blueMarker1.rotation.x = -Math.PI / 2;
+        blueMarker1.position.set(-dohyoWidth / 2 + 0.8, dohyoHeight / 2 + 0.02, -dohyoDepth / 2 + 0.8);
+        dohyoGroup.add(blueMarker1);
 
-        // 左の枠（X軸マイナス側）
-        const leftFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(frameThickness, frameThickness, dohyoDepth),
-            frameMaterial
+        // 右奥 - 赤
+        const redMarker1 = new THREE.Mesh(
+            markerGeometry,
+            new THREE.MeshStandardMaterial({ color: 0xff0000, side: THREE.DoubleSide })
         );
-        leftFrame.position.set(-dohyoWidth / 2, dohyoHeight / 2 + frameThickness / 2, 0);
-        dohyoGroup.add(leftFrame);
+        redMarker1.rotation.x = -Math.PI / 2;
+        redMarker1.position.set(dohyoWidth / 2 - 0.8, dohyoHeight / 2 + 0.02, -dohyoDepth / 2 + 0.8);
+        dohyoGroup.add(redMarker1);
 
-        // 右の枠（X軸プラス側）
-        const rightFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(frameThickness, frameThickness, dohyoDepth),
-            frameMaterial
+        // 左手前 - 青
+        const blueMarker2 = new THREE.Mesh(
+            markerGeometry,
+            new THREE.MeshStandardMaterial({ color: 0x0000ff, side: THREE.DoubleSide })
         );
-        rightFrame.position.set(dohyoWidth / 2, dohyoHeight / 2 + frameThickness / 2, 0);
-        dohyoGroup.add(rightFrame);
+        blueMarker2.rotation.x = -Math.PI / 2;
+        blueMarker2.position.set(-dohyoWidth / 2 + 0.8, dohyoHeight / 2 + 0.02, dohyoDepth / 2 - 0.8);
+        dohyoGroup.add(blueMarker2);
+
+        // 右手前 - 赤
+        const redMarker2 = new THREE.Mesh(
+            markerGeometry,
+            new THREE.MeshStandardMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+        );
+        redMarker2.rotation.x = -Math.PI / 2;
+        redMarker2.position.set(dohyoWidth / 2 - 0.8, dohyoHeight / 2 + 0.02, dohyoDepth / 2 - 0.8);
+        dohyoGroup.add(redMarker2);
 
         dohyoGroup.position.set(0, 0, 0);
         this.scene.add(dohyoGroup);
@@ -195,15 +212,16 @@ class TontonSumo {
 
     createWrestlers() {
         // 力士を2体作成（土俵の上、Z軸方向に配置）
+        const dohyoTopY = 0.75 + 0.6;  // 土俵上面 + 力士の高さ半分
         const wrestlerData = [
             {
                 color: 0xff0000,
-                position: new CANNON.Vec3(0, 1, -2),  // 奥側
+                position: new CANNON.Vec3(0, dohyoTopY, -2),  // 奥側
                 name: 'red'
             },
             {
                 color: 0x0000ff,
-                position: new CANNON.Vec3(0, 1, 2),   // 手前側
+                position: new CANNON.Vec3(0, dohyoTopY, 2),   // 手前側
                 name: 'blue'
             }
         ];
@@ -248,15 +266,15 @@ class TontonSumo {
         rightMesh.castShadow = true;
         wrestlerGroup.add(rightMesh);
 
-        // 顔部分（円）
+        // 顔部分（円）- 上向きに配置
         const faceGeometry = new THREE.CircleGeometry(0.25, 16);
         const faceMaterial = new THREE.MeshStandardMaterial({
             color: 0xffdbac,
             side: THREE.DoubleSide
         });
         const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial);
-        faceMesh.position.set(0, wrestlerHeight / 2 - 0.2, 0);
-        faceMesh.rotation.y = Math.PI / 2;  // 横向きに
+        faceMesh.position.set(0, wrestlerHeight / 2 - 0.15, 0);
+        faceMesh.rotation.x = -Math.PI / 2;  // 上向きに
         wrestlerGroup.add(faceMesh);
 
         // 髷（黒い円）
@@ -266,8 +284,8 @@ class TontonSumo {
             side: THREE.DoubleSide
         });
         const mageMesh = new THREE.Mesh(mageGeometry, mageMaterial);
-        mageMesh.position.set(0, wrestlerHeight / 2 + 0.05, 0);
-        mageMesh.rotation.y = Math.PI / 2;  // 横向きに
+        mageMesh.position.set(0, wrestlerHeight / 2 - 0.05, 0.1);
+        mageMesh.rotation.x = -Math.PI / 2;  // 上向きに
         wrestlerGroup.add(mageMesh);
 
         wrestlerGroup.position.copy(position);
@@ -452,7 +470,7 @@ class TontonSumo {
             }
 
             // 土俵より下に落ちたかチェック
-            if (wrestler.body.position.y < -1 && !wrestler.isOut) {
+            if (wrestler.body.position.y < -0.5 && !wrestler.isOut) {
                 wrestler.isOut = true;
             }
 
@@ -551,14 +569,15 @@ class TontonSumo {
         this.dohyo.body.angularVelocity.set(0, 0, 0);
 
         // 力士の位置と状態をリセット
-        this.wrestlers[0].body.position.set(0, 1, -2);  // 奥側
+        const dohyoTopY = 0.75 + 0.6;  // 土俵上面 + 力士の高さ半分
+        this.wrestlers[0].body.position.set(0, dohyoTopY, -2);  // 奥側
         this.wrestlers[0].body.velocity.set(0, 0, 0);
         this.wrestlers[0].body.angularVelocity.set(0, 0, 0);
         this.wrestlers[0].body.quaternion.set(0, 0, 0, 1);
         this.wrestlers[0].isOut = false;
         this.wrestlers[0].isDown = false;
 
-        this.wrestlers[1].body.position.set(0, 1, 2);   // 手前側
+        this.wrestlers[1].body.position.set(0, dohyoTopY, 2);   // 手前側
         this.wrestlers[1].body.velocity.set(0, 0, 0);
         this.wrestlers[1].body.angularVelocity.set(0, 0, 0);
         this.wrestlers[1].body.quaternion.set(0, 0, 0, 1);
