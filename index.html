@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>3D とんとん相撲</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <div id="start-screen" class="screen active">
+                <h1>3D とんとん相撲</h1>
+                <p>端末を揺らして力士を動かそう！</p>
+                <button id="start-button" class="btn">スタート</button>
+                <p class="info">※加速度センサーの許可が必要です</p>
+            </div>
+
+            <div id="game-screen" class="screen">
+                <div id="hud">
+                    <div class="player-info">
+                        <h3>赤の力士</h3>
+                        <div id="red-status" class="status">準備中</div>
+                    </div>
+                    <div class="player-info">
+                        <h3>青の力士</h3>
+                        <div id="blue-status" class="status">準備中</div>
+                    </div>
+                </div>
+                <button id="reset-button" class="btn btn-small">リセット</button>
+            </div>
+
+            <div id="result-screen" class="screen">
+                <h1 id="winner-text"></h1>
+                <button id="restart-button" class="btn">もう一度</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Cannon.js (Physics Engine) -->
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+
+    <!-- Game Scripts -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
