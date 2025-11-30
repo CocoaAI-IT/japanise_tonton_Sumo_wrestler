@@ -8,6 +8,8 @@ class TontonSumo {
         this.dohyo = null; // 土俵
         this.wrestlers = []; // 力士
         this.gameState = 'start'; // start, playing, ended
+        this.dohyoTilt = { x: 0, z: 0 }; // 土俵の傾き
+        this.targetTilt = { x: 0, z: 0 }; // 目標の傾き
 
         this.init();
         this.setupEventListeners();
@@ -84,8 +86,8 @@ class TontonSumo {
             groundMaterial,
             wrestlerMaterial,
             {
-                friction: 0.2,  // 摩擦を減らして動きやすく
-                restitution: 0.4  // 反発を少し上げる
+                friction: 0.4,  // 摩擦を上げて滑りすぎないように
+                restitution: 0.2  // 反発を減らす
             }
         );
         this.world.addContactMaterial(wrestlerGroundContact);
@@ -95,8 +97,8 @@ class TontonSumo {
             wrestlerMaterial,
             wrestlerMaterial,
             {
-                friction: 0.2,  // 摩擦を減らす
-                restitution: 0.6  // 反発を上げる
+                friction: 0.3,
+                restitution: 0.3
             }
         );
         this.world.addContactMaterial(wrestlerWrestlerContact);
@@ -110,7 +112,10 @@ class TontonSumo {
         const dohyoRadius = 5;
         const dohyoHeight = 0.5;
 
-        // Three.js視覚的メッシュ
+        // Three.js視覚的メッシュをグループにまとめる
+        const dohyoGroup = new THREE.Group();
+
+        // 土俵本体
         const geometry = new THREE.CylinderGeometry(dohyoRadius, dohyoRadius, dohyoHeight, 32);
         const material = new THREE.MeshStandardMaterial({
             color: 0xd2b48c,
@@ -118,34 +123,43 @@ class TontonSumo {
             metalness: 0.2
         });
         const dohyoMesh = new THREE.Mesh(geometry, material);
-        dohyoMesh.position.set(0, -dohyoHeight / 2, 0);
         dohyoMesh.receiveShadow = true;
-        this.scene.add(dohyoMesh);
+        dohyoGroup.add(dohyoMesh);
 
         // 土俵の線（俵）
         const edgeGeometry = new THREE.TorusGeometry(dohyoRadius, 0.1, 16, 50);
         const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
         const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
         edge.rotation.x = Math.PI / 2;
-        edge.position.y = 0.05;
-        this.scene.add(edge);
+        edge.position.y = dohyoHeight / 2 + 0.05;
+        dohyoGroup.add(edge);
 
-        // Cannon.js物理ボディ
+        dohyoGroup.position.set(0, -dohyoHeight / 2, 0);
+        this.scene.add(dohyoGroup);
+
+        // Cannon.js物理ボディ（動的オブジェクトとして作成）
         const dohyoShape = new CANNON.Cylinder(dohyoRadius, dohyoRadius, dohyoHeight, 32);
         const dohyoBody = new CANNON.Body({
-            mass: 0, // 静的オブジェクト
-            material: this.groundMaterial
+            mass: 100, // 動的オブジェクト（重い）
+            material: this.groundMaterial,
+            linearDamping: 0.99, // 動きを抑制
+            angularDamping: 0.99 // 回転を抑制
         });
         dohyoBody.addShape(dohyoShape);
         dohyoBody.position.set(0, -dohyoHeight / 2, 0);
         dohyoBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+
+        // 位置を固定（Y軸のみ移動できないように）
+        dohyoBody.type = CANNON.Body.KINEMATIC; // キネマティックボディに変更
+
         this.world.addBody(dohyoBody);
 
         this.dohyo = {
-            mesh: dohyoMesh,
+            mesh: dohyoGroup,
             body: dohyoBody,
             radius: dohyoRadius,
-            center: new THREE.Vector3(0, 0, 0)
+            center: new THREE.Vector3(0, 0, 0),
+            baseQuaternion: dohyoBody.quaternion.clone() // 初期回転を保存
         };
     }
 
@@ -223,10 +237,10 @@ class TontonSumo {
         // Cannon.js物理ボディ（箱型で近似）
         const wrestlerShape = new CANNON.Box(new CANNON.Vec3(bodyWidth / 2, bodyHeight / 2 + 0.3, bodyDepth / 2));
         const wrestlerBody = new CANNON.Body({
-            mass: 0.15,  // 紙のように軽く
+            mass: 0.4,  // 紙の力士（軽いが吹っ飛ばない程度）
             material: this.wrestlerMaterial,
-            linearDamping: 0.2,  // 空気抵抗を少し
-            angularDamping: 0.2
+            linearDamping: 0.3,  // 空気抵抗
+            angularDamping: 0.3
         });
         wrestlerBody.addShape(wrestlerShape);
         wrestlerBody.position.copy(position);
@@ -313,45 +327,31 @@ class TontonSumo {
     handleTap(position) {
         if (this.gameState !== 'playing') return;
 
-        // タップ位置に応じて力の方向を決定
-        let forceDirection = { x: 0, z: 0 };
+        // タップ位置に応じて土俵の傾き方向を決定
+        const tiltAmount = 0.15; // 傾きの大きさ（ラジアン）
 
         switch(position) {
             case 'top-left':
-                forceDirection = { x: 1, z: 1 };  // 右下方向
+                // 左上をタップ → 土俵を左上に傾ける（力士は右下に滑る）
+                this.targetTilt.x = -tiltAmount;
+                this.targetTilt.z = -tiltAmount;
                 break;
             case 'top-right':
-                forceDirection = { x: -1, z: 1 }; // 左下方向
+                // 右上をタップ → 土俵を右上に傾ける（力士は左下に滑る）
+                this.targetTilt.x = tiltAmount;
+                this.targetTilt.z = -tiltAmount;
                 break;
             case 'bottom-left':
-                forceDirection = { x: 1, z: -1 }; // 右上方向
+                // 左下をタップ → 土俵を左下に傾ける（力士は右上に滑る）
+                this.targetTilt.x = -tiltAmount;
+                this.targetTilt.z = tiltAmount;
                 break;
             case 'bottom-right':
-                forceDirection = { x: -1, z: -1 }; // 左上方向
+                // 右下をタップ → 土俵を右下に傾ける（力士は左上に滑る）
+                this.targetTilt.x = tiltAmount;
+                this.targetTilt.z = tiltAmount;
                 break;
         }
-
-        // 力士に力を加える
-        this.wrestlers.forEach(wrestler => {
-            if (!wrestler.isOut && !wrestler.isDown) {
-                // タップした方向に振動を伝える
-                const forceStrength = 8;  // 力の強さ
-                const impulse = new CANNON.Vec3(
-                    forceDirection.x * forceStrength + (Math.random() - 0.5) * 2,
-                    Math.random() * 1.5,  // 少し上方向にも
-                    forceDirection.z * forceStrength + (Math.random() - 0.5) * 2
-                );
-                wrestler.body.applyImpulse(impulse, wrestler.body.position);
-
-                // ランダムなトルクで揺れを追加
-                const torque = new CANNON.Vec3(
-                    (Math.random() - 0.5) * 3,
-                    (Math.random() - 0.5) * 1,
-                    (Math.random() - 0.5) * 3
-                );
-                wrestler.body.applyTorque(torque);
-            }
-        });
 
         // タップエリアに視覚的フィードバック
         const tapArea = document.getElementById(`tap-${position}`);
@@ -361,6 +361,34 @@ class TontonSumo {
                 tapArea.classList.remove('active');
             }, 100);
         }
+    }
+
+    // 土俵の傾きを更新
+    updateDohyoTilt() {
+        if (this.gameState !== 'playing') return;
+
+        // 目標の傾きに向かってスムーズに移動
+        const lerpSpeed = 0.2;
+        this.dohyoTilt.x += (this.targetTilt.x - this.dohyoTilt.x) * lerpSpeed;
+        this.dohyoTilt.z += (this.targetTilt.z - this.dohyoTilt.z) * lerpSpeed;
+
+        // 自然に水平に戻る（復元力）
+        const restoreSpeed = 0.05;
+        this.targetTilt.x *= (1 - restoreSpeed);
+        this.targetTilt.z *= (1 - restoreSpeed);
+
+        // 土俵の回転を更新（ベース回転に傾きを追加）
+        const baseQuat = this.dohyo.baseQuaternion.clone();
+
+        // X軸とZ軸の傾きを適用
+        const tiltQuatX = new CANNON.Quaternion();
+        tiltQuatX.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), this.dohyoTilt.x);
+
+        const tiltQuatZ = new CANNON.Quaternion();
+        tiltQuatZ.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), this.dohyoTilt.z);
+
+        // クォータニオンを合成
+        this.dohyo.body.quaternion = baseQuat.mult(tiltQuatZ).mult(tiltQuatX);
     }
 
     checkWinConditions() {
@@ -462,6 +490,13 @@ class TontonSumo {
     }
 
     resetGame() {
+        // 土俵の傾きをリセット
+        this.dohyoTilt = { x: 0, z: 0 };
+        this.targetTilt = { x: 0, z: 0 };
+        this.dohyo.body.quaternion.copy(this.dohyo.baseQuaternion);
+        this.dohyo.body.velocity.set(0, 0, 0);
+        this.dohyo.body.angularVelocity.set(0, 0, 0);
+
         // 力士の位置と状態をリセット
         this.wrestlers[0].body.position.set(-2, 2, 0);
         this.wrestlers[0].body.velocity.set(0, 0, 0);
@@ -492,6 +527,9 @@ class TontonSumo {
     animate() {
         requestAnimationFrame(() => this.animate());
 
+        // 土俵の傾きを更新
+        this.updateDohyoTilt();
+
         // 物理演算の更新
         this.world.step(1 / 60);
 
@@ -499,6 +537,11 @@ class TontonSumo {
         this.checkWinConditions();
 
         // Three.jsオブジェクトを物理ボディと同期
+        // 土俵
+        this.dohyo.mesh.position.copy(this.dohyo.body.position);
+        this.dohyo.mesh.quaternion.copy(this.dohyo.body.quaternion);
+
+        // 力士
         this.wrestlers.forEach(wrestler => {
             wrestler.mesh.position.copy(wrestler.body.position);
             wrestler.mesh.quaternion.copy(wrestler.body.quaternion);
