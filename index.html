@@ -16,9 +16,8 @@
         <div id="ui-overlay">
             <div id="start-screen" class="screen active">
                 <h1>3D とんとん相撲</h1>
-                <p>端末を揺らして力士を動かそう！</p>
+                <p>四隅をタップして土俵を揺らそう！</p>
                 <button id="start-button" class="btn">スタート</button>
-                <p class="info">※加速度センサーの許可が必要です</p>
             </div>
 
             <div id="game-screen" class="screen">
@@ -33,12 +32,15 @@
                     </div>
                 </div>
 
-                <!-- デバッグ情報 -->
-                <div id="debug-info" class="debug-panel"></div>
+                <!-- 四隅のタップエリア -->
+                <div id="tap-top-left" class="tap-area tap-top-left"></div>
+                <div id="tap-top-right" class="tap-area tap-top-right"></div>
+                <div id="tap-bottom-left" class="tap-area tap-bottom-left"></div>
+                <div id="tap-bottom-right" class="tap-area tap-bottom-right"></div>
 
                 <!-- 操作説明 -->
                 <div class="controls-info">
-                    <p>端末を振るか、画面をタップ！</p>
+                    <p>四隅をタップして振動！</p>
                 </div>
 
                 <button id="reset-button" class="btn btn-small">リセット</button>
