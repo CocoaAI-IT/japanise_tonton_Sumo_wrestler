@@ -48,7 +48,7 @@ class TontonSumo {
             0.1,
             1000
         );
-        this.camera.position.set(0, 0, 15);  // 正面から見る
+        this.camera.position.set(15, 0, 0);  // 横から見る（X軸方向から）
         this.camera.lookAt(0, 0, 0);
 
         // レンダラー
@@ -108,15 +108,15 @@ class TontonSumo {
     }
 
     createDohyo() {
-        // 土俵のプラットフォーム（平面、垂直に配置）
-        const dohyoWidth = 10;
-        const dohyoHeight = 8;
-        const dohyoDepth = 0.5;
+        // 土俵のプラットフォーム（水平な平面）
+        const dohyoWidth = 10;  // X軸方向
+        const dohyoDepth = 8;   // Z軸方向
+        const dohyoHeight = 0.3; // Y軸方向（厚み）
 
         // Three.js視覚的メッシュをグループにまとめる
         const dohyoGroup = new THREE.Group();
 
-        // 土俵本体（平面）
+        // 土俵本体（水平な平面）
         const geometry = new THREE.BoxGeometry(dohyoWidth, dohyoHeight, dohyoDepth);
         const material = new THREE.MeshStandardMaterial({
             color: 0xd2b48c,
@@ -131,42 +131,42 @@ class TontonSumo {
         const frameThickness = 0.2;
         const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
 
-        // 上の枠
-        const topFrame = new THREE.Mesh(
+        // 手前の枠（Z軸プラス側）
+        const frontFrame = new THREE.Mesh(
             new THREE.BoxGeometry(dohyoWidth, frameThickness, frameThickness),
             frameMaterial
         );
-        topFrame.position.set(0, dohyoHeight / 2, dohyoDepth / 2 + frameThickness / 2);
-        dohyoGroup.add(topFrame);
+        frontFrame.position.set(0, dohyoHeight / 2 + frameThickness / 2, dohyoDepth / 2);
+        dohyoGroup.add(frontFrame);
 
-        // 下の枠
-        const bottomFrame = new THREE.Mesh(
+        // 奥の枠（Z軸マイナス側）
+        const backFrame = new THREE.Mesh(
             new THREE.BoxGeometry(dohyoWidth, frameThickness, frameThickness),
             frameMaterial
         );
-        bottomFrame.position.set(0, -dohyoHeight / 2, dohyoDepth / 2 + frameThickness / 2);
-        dohyoGroup.add(bottomFrame);
+        backFrame.position.set(0, dohyoHeight / 2 + frameThickness / 2, -dohyoDepth / 2);
+        dohyoGroup.add(backFrame);
 
-        // 左の枠
+        // 左の枠（X軸マイナス側）
         const leftFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(frameThickness, dohyoHeight, frameThickness),
+            new THREE.BoxGeometry(frameThickness, frameThickness, dohyoDepth),
             frameMaterial
         );
-        leftFrame.position.set(-dohyoWidth / 2, 0, dohyoDepth / 2 + frameThickness / 2);
+        leftFrame.position.set(-dohyoWidth / 2, dohyoHeight / 2 + frameThickness / 2, 0);
         dohyoGroup.add(leftFrame);
 
-        // 右の枠
+        // 右の枠（X軸プラス側）
         const rightFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(frameThickness, dohyoHeight, frameThickness),
+            new THREE.BoxGeometry(frameThickness, frameThickness, dohyoDepth),
             frameMaterial
         );
-        rightFrame.position.set(dohyoWidth / 2, 0, dohyoDepth / 2 + frameThickness / 2);
+        rightFrame.position.set(dohyoWidth / 2, dohyoHeight / 2 + frameThickness / 2, 0);
         dohyoGroup.add(rightFrame);
 
         dohyoGroup.position.set(0, 0, 0);
         this.scene.add(dohyoGroup);
 
-        // Cannon.js物理ボディ（平面）
+        // Cannon.js物理ボディ（水平な平面）
         const dohyoShape = new CANNON.Box(new CANNON.Vec3(dohyoWidth / 2, dohyoHeight / 2, dohyoDepth / 2));
         const dohyoBody = new CANNON.Body({
             mass: 100, // 動的オブジェクト（重い）
@@ -187,23 +187,23 @@ class TontonSumo {
             mesh: dohyoGroup,
             body: dohyoBody,
             width: dohyoWidth,
-            height: dohyoHeight,
+            depth: dohyoDepth,
             center: new THREE.Vector3(0, 0, 0),
             baseQuaternion: dohyoBody.quaternion.clone() // 初期回転を保存
         };
     }
 
     createWrestlers() {
-        // 力士を2体作成（垂直配置）
+        // 力士を2体作成（土俵の上、Z軸方向に配置）
         const wrestlerData = [
             {
                 color: 0xff0000,
-                position: new CANNON.Vec3(-2.5, 0, 1),  // 左側
+                position: new CANNON.Vec3(0, 1, -2),  // 奥側
                 name: 'red'
             },
             {
                 color: 0x0000ff,
-                position: new CANNON.Vec3(2.5, 0, 1),   // 右側
+                position: new CANNON.Vec3(0, 1, 2),   // 手前側
                 name: 'blue'
             }
         ];
@@ -215,78 +215,76 @@ class TontonSumo {
     }
 
     createWrestler(color, position, name) {
-        // 紙で折った力士（くの字形状）のサイズ
-        const wrestlerWidth = 0.1;   // 紙の厚み
-        const wrestlerHeight = 1.5;  // 高さ
-        const wrestlerDepth = 1.0;   // 奥行き
+        // 紙で折った力士（上から見て∧のくの字形状）
+        const wrestlerWidth = 0.8;   // X軸方向の幅
+        const wrestlerHeight = 1.2;  // Y軸方向の高さ
+        const wrestlerDepth = 0.05;  // Z軸方向の厚み（紙の厚さ）
 
         // グループ（体全体）
         const wrestlerGroup = new THREE.Group();
 
-        // くの字を2つの平面で作成
-        // 前面
-        const frontGeometry = new THREE.BoxGeometry(wrestlerWidth, wrestlerHeight, wrestlerDepth);
-        const frontMaterial = new THREE.MeshStandardMaterial({
+        // くの字を2つの平面で作成（上から見て∧形状）
+        // 左側の平面
+        const leftGeometry = new THREE.BoxGeometry(wrestlerWidth / 2, wrestlerHeight, wrestlerDepth);
+        const leftMaterial = new THREE.MeshStandardMaterial({
             color: color,
             side: THREE.DoubleSide
         });
-        const frontMesh = new THREE.Mesh(frontGeometry, frontMaterial);
-        frontMesh.rotation.y = -Math.PI / 12;  // 少し角度をつける
-        frontMesh.position.x = -0.1;
-        frontMesh.castShadow = true;
-        wrestlerGroup.add(frontMesh);
+        const leftMesh = new THREE.Mesh(leftGeometry, leftMaterial);
+        leftMesh.rotation.y = -Math.PI / 6;  // Y軸周りに-30度回転
+        leftMesh.position.x = -wrestlerWidth / 4;
+        leftMesh.castShadow = true;
+        wrestlerGroup.add(leftMesh);
 
-        // 後面
-        const backGeometry = new THREE.BoxGeometry(wrestlerWidth, wrestlerHeight, wrestlerDepth);
-        const backMaterial = new THREE.MeshStandardMaterial({
+        // 右側の平面
+        const rightGeometry = new THREE.BoxGeometry(wrestlerWidth / 2, wrestlerHeight, wrestlerDepth);
+        const rightMaterial = new THREE.MeshStandardMaterial({
             color: color,
             side: THREE.DoubleSide
         });
-        const backMesh = new THREE.Mesh(backGeometry, backMaterial);
-        backMesh.rotation.y = Math.PI / 12;  // 反対方向に角度をつける
-        backMesh.position.x = 0.1;
-        backMesh.castShadow = true;
-        wrestlerGroup.add(backMesh);
+        const rightMesh = new THREE.Mesh(rightGeometry, rightMaterial);
+        rightMesh.rotation.y = Math.PI / 6;  // Y軸周りに+30度回転
+        rightMesh.position.x = wrestlerWidth / 4;
+        rightMesh.castShadow = true;
+        wrestlerGroup.add(rightMesh);
 
-        // 顔部分（小さい円）
-        const faceGeometry = new THREE.CircleGeometry(0.3, 16);
+        // 顔部分（円）
+        const faceGeometry = new THREE.CircleGeometry(0.25, 16);
         const faceMaterial = new THREE.MeshStandardMaterial({
             color: 0xffdbac,
             side: THREE.DoubleSide
         });
         const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial);
-        faceMesh.position.set(0, wrestlerHeight / 2 - 0.3, wrestlerDepth / 2 + 0.05);
+        faceMesh.position.set(0, wrestlerHeight / 2 - 0.2, 0);
+        faceMesh.rotation.y = Math.PI / 2;  // 横向きに
         wrestlerGroup.add(faceMesh);
 
         // 髷（黒い円）
-        const mageGeometry = new THREE.CircleGeometry(0.15, 8);
+        const mageGeometry = new THREE.CircleGeometry(0.12, 8);
         const mageMaterial = new THREE.MeshStandardMaterial({
             color: 0x000000,
             side: THREE.DoubleSide
         });
         const mageMesh = new THREE.Mesh(mageGeometry, mageMaterial);
-        mageMesh.position.set(0, wrestlerHeight / 2, wrestlerDepth / 2 + 0.05);
+        mageMesh.position.set(0, wrestlerHeight / 2 + 0.05, 0);
+        mageMesh.rotation.y = Math.PI / 2;  // 横向きに
         wrestlerGroup.add(mageMesh);
 
         wrestlerGroup.position.copy(position);
         this.scene.add(wrestlerGroup);
 
-        // Cannon.js物理ボディ（くの字形状を三角柱で近似）
-        // 底辺が線になるように、細長い三角形を使用
+        // Cannon.js物理ボディ（くの字形状を箱で近似）
         const wrestlerShape = new CANNON.Box(
-            new CANNON.Vec3(wrestlerWidth * 2, wrestlerHeight / 2, wrestlerDepth / 2)
+            new CANNON.Vec3(wrestlerWidth / 2, wrestlerHeight / 2, wrestlerDepth * 3)
         );
         const wrestlerBody = new CANNON.Body({
-            mass: 0.3,  // 紙のように軽く
+            mass: 0.25,  // 紙のように軽く
             material: this.wrestlerMaterial,
-            linearDamping: 0.4,  // 空気抵抗を増やして安定化
-            angularDamping: 0.6  // 回転抵抗を増やして倒れやすく
+            linearDamping: 0.3,
+            angularDamping: 0.5
         });
         wrestlerBody.addShape(wrestlerShape);
         wrestlerBody.position.copy(position);
-
-        // 重心を下に設定（底辺で接触しやすくする）
-        wrestlerBody.shapeOffsets[0] = new CANNON.Vec3(0, 0, 0);
 
         this.world.addBody(wrestlerBody);
 
@@ -301,12 +299,12 @@ class TontonSumo {
 
     setupLighting() {
         // 環境光
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(ambientLight);
 
-        // ディレクショナルライト（正面から）
+        // ディレクショナルライト（斜め上から）
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(0, 0, 10);
+        directionalLight.position.set(10, 10, 5);
         directionalLight.castShadow = true;
         directionalLight.shadow.camera.left = -10;
         directionalLight.shadow.camera.right = 10;
@@ -316,10 +314,10 @@ class TontonSumo {
         directionalLight.shadow.mapSize.height = 2048;
         this.scene.add(directionalLight);
 
-        // サイドライト（立体感を出す）
-        const sideLight = new THREE.PointLight(0xffffff, 0.3);
-        sideLight.position.set(5, 0, 5);
-        this.scene.add(sideLight);
+        // 上からのライト（土俵を照らす）
+        const topLight = new THREE.PointLight(0xffffff, 0.4);
+        topLight.position.set(0, 5, 0);
+        this.scene.add(topLight);
     }
 
     setupEventListeners() {
@@ -372,28 +370,28 @@ class TontonSumo {
         if (this.gameState !== 'playing') return;
 
         // タップ位置に応じて土俵の傾き方向を決定
-        const tiltAmount = 0.12; // 傾きの大きさ（ラジアン）
+        const tiltAmount = 0.1; // 傾きの大きさ（ラジアン）
 
         switch(position) {
             case 'top-left':
-                // 左上をタップ → 土俵を左上に傾ける（力士は右下に滑る）
-                this.targetTilt.x = -tiltAmount;  // X軸：左に傾ける
-                this.targetTilt.z = tiltAmount;   // Y軸：上に傾ける
+                // 左上をタップ → 土俵を手前・左に傾ける
+                this.targetTilt.x = -tiltAmount;  // Z軸周り：左に傾く
+                this.targetTilt.z = tiltAmount;   // X軸周り：手前に傾く
                 break;
             case 'top-right':
-                // 右上をタップ → 土俵を右上に傾ける（力士は左下に滑る）
-                this.targetTilt.x = tiltAmount;   // X軸：右に傾ける
-                this.targetTilt.z = tiltAmount;   // Y軸：上に傾ける
+                // 右上をタップ → 土俵を手前・右に傾ける
+                this.targetTilt.x = tiltAmount;   // Z軸周り：右に傾く
+                this.targetTilt.z = tiltAmount;   // X軸周り：手前に傾く
                 break;
             case 'bottom-left':
-                // 左下をタップ → 土俵を左下に傾ける（力士は右上に滑る）
-                this.targetTilt.x = -tiltAmount;  // X軸：左に傾ける
-                this.targetTilt.z = -tiltAmount;  // Y軸：下に傾ける
+                // 左下をタップ → 土俵を奥・左に傾ける
+                this.targetTilt.x = -tiltAmount;  // Z軸周り：左に傾く
+                this.targetTilt.z = -tiltAmount;  // X軸周り：奥に傾く
                 break;
             case 'bottom-right':
-                // 右下をタップ → 土俵を右下に傾ける（力士は左上に滑る）
-                this.targetTilt.x = tiltAmount;   // X軸：右に傾ける
-                this.targetTilt.z = -tiltAmount;  // Y軸：下に傾ける
+                // 右下をタップ → 土俵を奥・右に傾ける
+                this.targetTilt.x = tiltAmount;   // Z軸周り：右に傾く
+                this.targetTilt.z = -tiltAmount;  // X軸周り：奥に傾く
                 break;
         }
 
@@ -422,16 +420,16 @@ class TontonSumo {
         this.targetTilt.z *= (1 - restoreSpeed);
 
         // 土俵の回転を更新
-        // X軸の傾き（左右）
-        const tiltQuatX = new CANNON.Quaternion();
-        tiltQuatX.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), this.dohyoTilt.x);
+        // Z軸周りの回転（左右の傾き）
+        const tiltQuatZ = new CANNON.Quaternion();
+        tiltQuatZ.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), this.dohyoTilt.x);
 
-        // Y軸の傾き（上下）
-        const tiltQuatY = new CANNON.Quaternion();
-        tiltQuatY.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), this.dohyoTilt.z);
+        // X軸周りの回転（手前奥の傾き）
+        const tiltQuatX = new CANNON.Quaternion();
+        tiltQuatX.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), this.dohyoTilt.z);
 
         // クォータニオンを合成
-        this.dohyo.body.quaternion = tiltQuatY.mult(tiltQuatX);
+        this.dohyo.body.quaternion = tiltQuatZ.mult(tiltQuatX);
     }
 
     checkWinConditions() {
@@ -441,25 +439,35 @@ class TontonSumo {
         let winner = null;
 
         this.wrestlers.forEach(wrestler => {
-            // 土俵から出たかチェック（矩形範囲）
+            // 土俵から出たかチェック（X軸とZ軸の範囲）
             const halfWidth = this.dohyo.width / 2;
-            const halfHeight = this.dohyo.height / 2;
+            const halfDepth = this.dohyo.depth / 2;
 
             if (
                 (Math.abs(wrestler.body.position.x) > halfWidth ||
-                Math.abs(wrestler.body.position.y) > halfHeight) &&
+                Math.abs(wrestler.body.position.z) > halfDepth) &&
                 !wrestler.isOut
             ) {
                 wrestler.isOut = true;
             }
 
-            // 倒れたかチェック（Z軸の回転で判定）
+            // 土俵より下に落ちたかチェック
+            if (wrestler.body.position.y < -1 && !wrestler.isOut) {
+                wrestler.isOut = true;
+            }
+
+            // 倒れたかチェック（Y軸の回転で判定）
             const rotation = wrestler.body.quaternion;
             const euler = new CANNON.Vec3();
             rotation.toEuler(euler);
 
-            // Z軸の回転が大きい場合は倒れたと判定（横に倒れる）
-            if (Math.abs(euler.z) > Math.PI / 3 && !wrestler.isDown) {
+            // Y軸の回転が大きい場合は倒れたと判定
+            if (Math.abs(euler.y) > Math.PI / 3 && !wrestler.isDown) {
+                wrestler.isDown = true;
+            }
+
+            // X軸やZ軸の回転も確認（前後左右に倒れる）
+            if ((Math.abs(euler.x) > Math.PI / 4 || Math.abs(euler.z) > Math.PI / 4) && !wrestler.isDown) {
                 wrestler.isDown = true;
             }
 
@@ -542,15 +550,15 @@ class TontonSumo {
         this.dohyo.body.velocity.set(0, 0, 0);
         this.dohyo.body.angularVelocity.set(0, 0, 0);
 
-        // 力士の位置と状態をリセット（横視点に合わせた位置）
-        this.wrestlers[0].body.position.set(-2.5, 0, 1);  // 左側
+        // 力士の位置と状態をリセット
+        this.wrestlers[0].body.position.set(0, 1, -2);  // 奥側
         this.wrestlers[0].body.velocity.set(0, 0, 0);
         this.wrestlers[0].body.angularVelocity.set(0, 0, 0);
         this.wrestlers[0].body.quaternion.set(0, 0, 0, 1);
         this.wrestlers[0].isOut = false;
         this.wrestlers[0].isDown = false;
 
-        this.wrestlers[1].body.position.set(2.5, 0, 1);   // 右側
+        this.wrestlers[1].body.position.set(0, 1, 2);   // 手前側
         this.wrestlers[1].body.velocity.set(0, 0, 0);
         this.wrestlers[1].body.angularVelocity.set(0, 0, 0);
         this.wrestlers[1].body.quaternion.set(0, 0, 0, 1);
