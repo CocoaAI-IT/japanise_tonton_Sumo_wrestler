@@ -8,9 +8,6 @@ class TontonSumo {
         this.dohyo = null; // 土俵
         this.wrestlers = []; // 力士
         this.gameState = 'start'; // start, playing, ended
-        this.accelerationData = { x: 0, y: 0, z: 0 };
-        this.lastAcceleration = { x: 0, y: 0, z: 0 };
-        this.debugMode = true; // デバッグモード
 
         this.init();
         this.setupEventListeners();
@@ -226,10 +223,10 @@ class TontonSumo {
         // Cannon.js物理ボディ（箱型で近似）
         const wrestlerShape = new CANNON.Box(new CANNON.Vec3(bodyWidth / 2, bodyHeight / 2 + 0.3, bodyDepth / 2));
         const wrestlerBody = new CANNON.Body({
-            mass: 0.5,  // 質量を半分に減らして軽くする
+            mass: 0.15,  // 紙のように軽く
             material: this.wrestlerMaterial,
-            linearDamping: 0.1,  // ダンピングを減らして動きやすく
-            angularDamping: 0.1
+            linearDamping: 0.2,  // 空気抵抗を少し
+            angularDamping: 0.2
         });
         wrestlerBody.addShape(wrestlerShape);
         wrestlerBody.position.copy(position);
@@ -270,7 +267,7 @@ class TontonSumo {
     setupEventListeners() {
         // スタートボタン
         document.getElementById('start-button').addEventListener('click', () => {
-            this.requestMotionPermission();
+            this.startGame();
         });
 
         // リセットボタン
@@ -286,168 +283,83 @@ class TontonSumo {
             this.gameState = 'playing';
         });
 
-        // テスト用：画面タップで振動を発生
-        document.addEventListener('touchstart', (e) => {
-            if (this.gameState === 'playing') {
-                this.applyTapShake();
+        // 四隅のタップエリア
+        const tapAreas = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+        tapAreas.forEach(areaId => {
+            const area = document.getElementById(`tap-${areaId}`);
+            if (area) {
+                // タッチイベント
+                area.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.handleTap(areaId);
+                });
+                // クリックイベント（PC用）
+                area.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    this.handleTap(areaId);
+                });
             }
         });
-
-        // PC用：クリックで振動を発生
-        document.addEventListener('click', (e) => {
-            if (this.gameState === 'playing' && e.target.tagName !== 'BUTTON') {
-                this.applyTapShake();
-            }
-        });
-    }
-
-    async requestMotionPermission() {
-        // iOS 13+での加速度センサー許可リクエスト
-        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-            try {
-                const permission = await DeviceMotionEvent.requestPermission();
-                if (permission === 'granted') {
-                    this.startGame();
-                } else {
-                    alert('加速度センサーの許可が必要です');
-                }
-            } catch (error) {
-                console.error('Permission error:', error);
-                alert('加速度センサーの許可に失敗しました');
-            }
-        } else {
-            // Android等、許可不要なデバイス
-            this.startGame();
-        }
     }
 
     startGame() {
         this.hideScreen('start-screen');
         this.showScreen('game-screen');
         this.gameState = 'playing';
-
-        // 加速度センサーのリスナー
-        window.addEventListener('devicemotion', (event) => {
-            // 前回の加速度を保存
-            this.lastAcceleration = { ...this.accelerationData };
-
-            // 重力を除いた純粋な加速度を優先使用
-            if (event.acceleration && (event.acceleration.x !== null || event.acceleration.y !== null)) {
-                this.accelerationData.x = event.acceleration.x || 0;
-                this.accelerationData.y = event.acceleration.y || 0;
-                this.accelerationData.z = event.acceleration.z || 0;
-            } else if (event.accelerationIncludingGravity) {
-                // フォールバック：重力込みの加速度
-                this.accelerationData.x = event.accelerationIncludingGravity.x || 0;
-                this.accelerationData.y = event.accelerationIncludingGravity.y || 0;
-                this.accelerationData.z = event.accelerationIncludingGravity.z || 0;
-            }
-
-            // デバッグ表示
-            if (this.debugMode) {
-                this.showDebugInfo();
-            }
-        });
-
         this.updateStatus();
     }
 
-    applyAccelerationToField() {
+    // タップエリアがタップされた時の処理
+    handleTap(position) {
         if (this.gameState !== 'playing') return;
 
-        // 加速度の変化量を計算（デルタ）
-        const deltaX = this.accelerationData.x - this.lastAcceleration.x;
-        const deltaY = this.accelerationData.y - this.lastAcceleration.y;
-        const deltaZ = this.accelerationData.z - this.lastAcceleration.z;
+        // タップ位置に応じて力の方向を決定
+        let forceDirection = { x: 0, z: 0 };
 
-        // 振動の強度を大幅に増加（20倍）
-        const intensity = 20.0;
+        switch(position) {
+            case 'top-left':
+                forceDirection = { x: 1, z: 1 };  // 右下方向
+                break;
+            case 'top-right':
+                forceDirection = { x: -1, z: 1 }; // 左下方向
+                break;
+            case 'bottom-left':
+                forceDirection = { x: 1, z: -1 }; // 右上方向
+                break;
+            case 'bottom-right':
+                forceDirection = { x: -1, z: -1 }; // 左上方向
+                break;
+        }
 
-        // 加速度の大きさを計算
-        const magnitude = Math.sqrt(
-            this.accelerationData.x ** 2 +
-            this.accelerationData.y ** 2 +
-            this.accelerationData.z ** 2
-        );
-
+        // 力士に力を加える
         this.wrestlers.forEach(wrestler => {
             if (!wrestler.isOut && !wrestler.isDown) {
-                // 加速度を力として適用（デルタを使用）
-                const forceX = deltaX * intensity;
-                const forceZ = deltaZ * intensity;
-
-                // 現在の加速度も追加で適用（常に少しずつ動くように）
-                const constantForceX = this.accelerationData.x * 2.0;
-                const constantForceZ = this.accelerationData.z * 2.0;
-
-                wrestler.body.applyForce(
-                    new CANNON.Vec3(
-                        forceX + constantForceX,
-                        0,
-                        forceZ + constantForceZ
-                    ),
-                    wrestler.body.position
+                // タップした方向に振動を伝える
+                const forceStrength = 8;  // 力の強さ
+                const impulse = new CANNON.Vec3(
+                    forceDirection.x * forceStrength + (Math.random() - 0.5) * 2,
+                    Math.random() * 1.5,  // 少し上方向にも
+                    forceDirection.z * forceStrength + (Math.random() - 0.5) * 2
                 );
+                wrestler.body.applyImpulse(impulse, wrestler.body.position);
 
-                // 振動に応じたトルクを適用（揺れを再現）
-                const torqueIntensity = magnitude * 0.5;
+                // ランダムなトルクで揺れを追加
                 const torque = new CANNON.Vec3(
-                    (Math.random() - 0.5) * torqueIntensity,
-                    (Math.random() - 0.5) * torqueIntensity * 0.5,
-                    (Math.random() - 0.5) * torqueIntensity
-                );
-                wrestler.body.applyTorque(torque);
-
-                // ランダムな衝撃を追加（とんとん感を出す）
-                if (Math.abs(deltaX) > 0.5 || Math.abs(deltaZ) > 0.5) {
-                    const impulse = new CANNON.Vec3(
-                        (Math.random() - 0.5) * 5,
-                        Math.random() * 2,
-                        (Math.random() - 0.5) * 5
-                    );
-                    wrestler.body.applyImpulse(impulse, wrestler.body.position);
-                }
-            }
-        });
-    }
-
-    // タップで振動を発生させる
-    applyTapShake() {
-        this.wrestlers.forEach(wrestler => {
-            if (!wrestler.isOut && !wrestler.isDown) {
-                // ランダムな方向に力を加える
-                const randomForce = new CANNON.Vec3(
-                    (Math.random() - 0.5) * 30,
-                    Math.random() * 5,
-                    (Math.random() - 0.5) * 30
-                );
-                wrestler.body.applyImpulse(randomForce, wrestler.body.position);
-
-                // トルクも追加
-                const torque = new CANNON.Vec3(
-                    (Math.random() - 0.5) * 10,
-                    (Math.random() - 0.5) * 5,
-                    (Math.random() - 0.5) * 10
+                    (Math.random() - 0.5) * 3,
+                    (Math.random() - 0.5) * 1,
+                    (Math.random() - 0.5) * 3
                 );
                 wrestler.body.applyTorque(torque);
             }
         });
-    }
 
-    // デバッグ情報を表示
-    showDebugInfo() {
-        const debugDiv = document.getElementById('debug-info');
-        if (debugDiv) {
-            debugDiv.innerHTML = `
-                <strong>加速度データ:</strong><br>
-                X: ${this.accelerationData.x.toFixed(2)}<br>
-                Y: ${this.accelerationData.y.toFixed(2)}<br>
-                Z: ${this.accelerationData.z.toFixed(2)}<br>
-                <strong>デルタ:</strong><br>
-                ΔX: ${(this.accelerationData.x - this.lastAcceleration.x).toFixed(2)}<br>
-                ΔY: ${(this.accelerationData.y - this.lastAcceleration.y).toFixed(2)}<br>
-                ΔZ: ${(this.accelerationData.z - this.lastAcceleration.z).toFixed(2)}
-            `;
+        // タップエリアに視覚的フィードバック
+        const tapArea = document.getElementById(`tap-${position}`);
+        if (tapArea) {
+            tapArea.classList.add('active');
+            setTimeout(() => {
+                tapArea.classList.remove('active');
+            }, 100);
         }
     }
 
@@ -582,9 +494,6 @@ class TontonSumo {
 
         // 物理演算の更新
         this.world.step(1 / 60);
-
-        // 加速度の適用
-        this.applyAccelerationToField();
 
         // 勝敗判定
         this.checkWinConditions();
