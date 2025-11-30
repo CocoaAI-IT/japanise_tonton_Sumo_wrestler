@@ -170,6 +170,40 @@ p {
     }
 }
 
+/* デバッグパネル */
+#debug-info {
+    position: absolute;
+    top: 100px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 0.8rem;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    font-family: monospace;
+    color: #0f0;
+    border: 1px solid #0f0;
+    max-width: 200px;
+    line-height: 1.4;
+}
+
+/* 操作説明 */
+.controls-info {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(102, 126, 234, 0.9);
+    padding: 0.8rem 1.5rem;
+    border-radius: 20px;
+    text-align: center;
+}
+
+.controls-info p {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: bold;
+}
+
 /* モバイル対応 */
 @media (max-width: 768px) {
     h1 {
@@ -197,5 +231,19 @@ p {
 
     #winner-text {
         font-size: 2rem;
+    }
+
+    #debug-info {
+        font-size: 0.7rem;
+        padding: 0.5rem;
+        max-width: 150px;
+    }
+
+    .controls-info {
+        bottom: 80px;
+    }
+
+    .controls-info p {
+        font-size: 0.9rem;
     }
 }
